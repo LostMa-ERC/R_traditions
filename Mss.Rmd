@@ -1,0 +1,1069 @@
+---
+title: "Manuscrits de chansons de geste et chansonniers"
+author: "JBC"
+date: "3 juin 2018"
+output:
+  html_document:
+    pandoc_args:
+    - +RTS
+    - -K512m
+    - -RTS
+---
+
+<!-- TODO: reprendre globalement, et nettoyer les données, et gérer ça avec une belle table unique bien propre.
+Faire les décisions nécessaires en termes de génération, identité des textes, etc., et tout le prénettoyage souhaitable.
+-->
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+```{r, echo=FALSE}
+#setwd("~/Data/F/Articles et CR/Article_Silva_portentosa/R")
+```
+
+```{r functions}
+maReg = function(select = "", print = TRUE){
+  reg = lm(witPerAut ~ TextPerAut, 
+           data = as.data.frame(autTrads[colors == select,]))
+  if(print == TRUE){
+    print(summary(reg))
+    }
+  abline(reg, col = select)
+}
+```
+
+
+# Troubadours' texts and witnesses
+
+```{r, echo=FALSE,}
+BeDT = read.csv(file="data/BeDT_prepared.csv", sep=";", header = TRUE, row.names = NULL, quote = '\"')
+BeDT_auts = read.csv(file="data/BeDT_auts_raw.csv", sep=";", header = TRUE, row.names = NULL, quote = '\"')
+BeDT_auts = BeDT_auts[,c(-1, -2)]
+BeDT_auts = unique(BeDT_auts)
+```
+
+<!-- TODO: pour tout ce qui implique auteurs et générations…
+Affiner les traitements pour gérer l'incertitude, les attributations / datations multiples, 
+les auteurs seulement mentionnés. Ce dernier au moins est très important.
+Exporter le tableau BeDT retravaillé, pour ne pas avoir à répéter les étapes de traitement de données.
+-->
+
+## Some distributions
+
+1. Distributions of the number of witnesses / texts / author, in relation.
+
+2. Chronological distributions ?
+
+3. Geographical distributions ?
+
+
+### Preprocessing
+
+#### Texts and witnesses 
+
+```{r}
+# Remove vidas
+BeDT = BeDT[grep(",", BeDT[,"repertorio_n"]), ]
+# Les pièces non strictement lyriques: à garder ou pas ?
+BeDT = BeDT[grep("[IVX]+", BeDT[,"repertorio_n"], invert = TRUE), , drop = TRUE]
+# Add generation information
+
+```
+
+### Witness per author
+
+- anonyms removed;
+
+```{r}
+autText = matrix(ncol = 2, dimnames = list(NULL, c("aut", "text")), unlist(strsplit(as.character(BeDT[,"repertorio_n"]), ",")), byrow = TRUE)
+# Remove anonyms
+autText = autText[!autText[,1] == "BEdT 461", ]
+#
+witPerAut = table(autText[,1])
+plot(table(witPerAut), type = "h", col = "red", lwd = 10, main = "Distr. of witnesses per author", xlab = "number of witnesses", ylab = "Freqs", sub = paste("N = ", nrow(autText)))
+
+summary(as.vector(witPerAut))
+head(sort(witPerAut, decreasing = TRUE))
+```
+
+Petit top:
+
+- Guiraut de Borneill: 759 témoins;
+- Gaucelm Faidit: 547 témoins;
+- Bernart de Ventadorn: 515 témoins;
+- Peire Vidal: 500 témoins;
+- Aimeric de Pegulhan: 471 témoins;
+- Peire Cardenal: 410 témoins.
+
+### Text per author
+
+```{r}
+autTextUniques = unique(autText)
+TextPerAut = table(autTextUniques[,1])
+plot(table(TextPerAut), type = "h", col = "red", lwd = 10, main = "Distr. of texts per author", xlab = "number of texts", ylab = "Freqs", sub = paste("N = ", nrow(autTextUniques)))
+
+summary(as.vector(TextPerAut))
+head(sort(TextPerAut, decreasing = TRUE))
+
+troubTextPerAut = TextPerAut
+troubautTextUniques = autTextUniques
+```
+
+- (248, Guiraut Riquier: 98 -> disparaît car nombreux textes non lyriques)
+- 082, Bertran Carbonel: 91
+
+### Relationship nr. of text / nr. of wits per author
+
+```{r}
+autTrads = cbind(TextPerAut, witPerAut)
+# set rownames
+rownames(BeDT_auts) = BeDT_auts[, "rep_n_aut"]
+# Get generation information
+gens = BeDT_auts[rownames(autTrads),][, "gen"]
+colors = rep("white", length(gens))
+colors[grep("^1", gens)] = "blue"
+colors[grep("^2", gens)] = "yellow"
+colors[grep("^3", gens)] = "red"
+colors[grep("^4", gens)] = "darkred"
+colors[grep("^5", gens)] = "purple"
+colors[grep("^6", gens)] = "black"
+
+table(colors)
+plot(table(colors))
+```
+
+#### Régression log(wits per auts) ~ log(TextPerAut)
+
+```{r}
+plot(autTrads, log = "xy", col = colors, main ="Nombre de textes et de témoins par auteur", xlab = "N. textes", ylab = "N. témoins", sub = "plan log/log")
+legend("topleft", legend = c("........-1150", "1150-1175", "1170-1210", "1190-1235","1230-1265", "1260-...."), fill = c("blue", "yellow", "red", "darkred", "purple", "black"), cex = 0.7)
+reg = lm(log(witPerAut) ~ log(TextPerAut), data = as.data.frame(autTrads))
+summary(reg)
+abline(reg, col="red")
+```
+
+En différenciant par période
+
+```{r}
+plot(autTrads, log = "xy", col = colors, main ="Nombre de textes et de témoins par auteur", xlab = "N. textes", ylab = "N. témoins", sub = "plan log/log")
+legend("topleft", legend = c("........-1150", "1150-1175", "1170-1210", "1190-1235","1230-1265", "1260-...."), fill = c("blue", "yellow", "red", "darkred", "purple", "black"), cex = 0.7)
+maReg(select = "blue")
+maReg(select = "yellow")
+maReg(select = "red")
+maReg(select = "darkred")
+maReg(select = "purple")
+maReg(select = "black")
+
+```
+
+
+#### Régression wits per auts ~ TextPerAut (moins bonne)
+
+```{r}
+plot(autTrads, col = colors, main ="Nombre de textes et de témoins par auteur", xlab = "N. textes", ylab = "N. témoins")
+legend("topleft", legend = c("........-1150", "1150-1175", "1170-1210", "1190-1235","1230-1265", "1260-...."), fill = c("blue", "yellow", "red", "darkred", "purple", "black"), cex = 0.7)
+reg = lm(witPerAut ~ TextPerAut, data = as.data.frame(autTrads))
+summary(reg)
+abline(reg, col="red")
+```
+
+Quels sont ces points aberrants ?
+
+```{r}
+autTrads[
+  autTrads[, "TextPerAut"] > 60 
+  & autTrads[, "witPerAut"] < 300, 
+]
+```
+
+```{r}
+plot(autTrads, col = colors, main ="Nombre de textes et de témoins par auteur", xlab = "N. textes", ylab = "N. témoins")
+legend("topleft", legend = c("........-1150", "1150-1175", "1170-1210", "1190-1235","1230-1265", "1260-...."), fill = c("blue", "yellow", "red", "darkred", "purple", "black"), cex = 0.7)
+maReg(select = "blue")
+maReg(select = "yellow")
+maReg(select = "red")
+maReg(select = "darkred")
+maReg(select = "purple")
+maReg(select = "black")
+```
+
+
+
+- 082: Bertran Carbonel
+- 246: Guillem de l'Olivier d'Arle
+- 248: Guiraut Riquier
+- 434a: Cerveri de Girona 2
+(tous attestés dans R ou Sg ?)
+
+-> question des attributions douteuses (sigle d'auteur à lettre) 
+et question des textes non lyriques (sigles à lettre).
+
+La rég. sans eux,
+
+```{r}
+# plot(autTrads, col = colors)
+# autTrads2 = autTrads[!rownames(autTrads) %in% c("BEdT 082", "BEdT 246", "BEdT 248", "BEdT 434a"), ]
+# reg = lm(witPerAut ~ TextPerAut, data = as.data.frame(autTrads2))
+# summary(reg)
+# abline(reg, col="red")
+```
+
+-> assez logique que soient tardifs. Effet goulot d'étranglement fait que petit nombre de textes passent. Mais, quand ils ont survécu, ils peuvent être beaucoup copiés.
+Alors que, quand plus récent, on peut avoir plus de textes avec peu de copies (moins filtré).
+
+Same regression, but merging before 1150 and 1150-1175 (too small)
+
+```{r}
+colors[colors == "blue"] = "yellow"
+plot(autTrads, col = colors, main ="D", xlab = "N. textes", ylab = "N. témoins")
+legend("topleft", legend = c("........-1175", "1170-1210", "1190-1235","1230-1265", "1260-...."), fill = c("yellow", "red", "darkred", "purple", "black"), cex = 0.7)
+maReg(select = c("yellow"))
+maReg(select = "red")
+maReg(select = "darkred")
+maReg(select = "purple")
+maReg(select = "black")
+```
+
+### Witness per text
+
+```{r}
+# get the frequencies of the texts
+textsFreqs = table(as.character(BeDT[,"repertorio_n"]))
+#View(sort(textsFreqs, decreasing = TRUE))
+textsFreqs = as.data.frame(textsFreqs)
+```
+
+```{r}
+# plot it
+#plot(textsFreqs[,2])
+#barplot(textsFreqs[,2])
+# hist(textsFreqs[,2], breaks = seq(min(textsFreqs[,2])-0.5, max(textsFreqs[,2])+0.5, by=1), main = "Distribution of witnesses per text", xlab = "number of witnesses", include.lowest = TRUE)
+# or, better
+plot(table(textsFreqs[,2]), type = "h", col = "red", lwd = 10, main = "Distr. of witnesses per troubadour text", xlab = "number of witnesses", ylab = "Freqs", sub = paste("N = ", length(textsFreqs[,2])))
+#boxplot(textsFreqs[,2])
+#summary(textsFreqs[,2])
+# geometric mean
+exp(mean(log(textsFreqs[,2])))
+
+# frequencies for each numeric value
+numFreqs = table(textsFreqs[,2])
+numFreqs = as.data.frame(numFreqs)
+numFreqs = sapply(numFreqs, as.numeric)
+plot(numFreqs[,1], numFreqs[,2], log = "xy", main = "Distr. of wits per troubadour text - logarithmic scale", xlab = "number of witnesses", ylab = "freqs")
+```
+
+Petit florilège:
+```{r}
+head(textsFreqs[order(textsFreqs[,2], decreasing = TRUE), ])
+```
+
+```{r}
+# save
+troubtextsFreqs = textsFreqs
+```
+
+
+## Chronological distributions
+
+- Texts according to date of authors vs. witness according to date of ms.;
+- nr. of texts per author according to date;
+- nr. of witness per text according to date of author?
+
+### Authors per period
+
+```{r, fig.height=6, fig.width=9}
+gensClean = sub("^(\\d).*$", "\\1", gens)
+gensClean[grep(pattern = "^1", gens)] = "-1150"
+gensClean[grep(pattern = "^2", gens)] = "1150-1175"
+gensClean[grep(pattern = "^3", gens)] = "1170-1210"
+gensClean[grep(pattern = "^4", gens)] = "1190-1235"
+gensClean[grep(pattern = "^5", gens)] = "1230-1265"
+gensClean[grep(pattern = "^6", gens)] = "1260-"
+gensClean[grep(pattern = "^(9|0|a)", gens)] = "?"
+plot(as.factor(gensClean), main="Nombre d'auteurs par génération", sub = "source: BeDT")
+```
+
+### Texts per period
+
+```{r, fig.height=8, fig.width=8}
+# add gen to autText
+#autText = autText
+autTextGen = cbind(autText, as.character(BeDT_auts[autText[, "aut"], ][, "gen"]), as.character(BeDT_auts[autText[, "aut"], ][, "gen"]))
+colnames(autTextGen)[3:4] = c("gen", "indic")
+autTextGen[, "gen"][grep("^1", autTextGen[, "gen"])] = "-1150"
+autTextGen[, "gen"][grep("^2", autTextGen[, "gen"])] = "1150-1175"
+autTextGen[, "gen"][grep("^3", autTextGen[, "gen"])] = "1170-1210"
+autTextGen[, "gen"][grep("^4", autTextGen[, "gen"])] = "1190-1235"
+autTextGen[, "gen"][grep("^5", autTextGen[, "gen"])] = "1230-1265"
+autTextGen[, "gen"][grep("^6", autTextGen[, "gen"])] = "1260-"
+autTextGen[, "gen"][grep("^(0|9|a)", autTextGen[, "gen"])] = "?"
+
+plot(as.factor(autTextGen[, "gen"]), main="Nombre de textes par génération\nsource: BeDT", las = 2)
+
+```
+
+### Witnesses per period
+
+```{r}
+# Get sigla
+sigla = as.factor(gsub("p\\_\\°?\\^?([A-Za-z0-9]+)\\_.*$", "\\1", BeDT[,"SIGLA"]))
+levels(sigla)[grep("omega", levels(sigla))] = "omega"
+levels(sigla)[grep("psi", levels(sigla))] = "psi"
+levels(sigla)[grep("eta", levels(sigla))] = "eta"
+levels(sigla)[grep("Bamb", levels(sigla))] = "bamberg136"
+levels(sigla)[grep("BAV, PL", levels(sigla))] = "PalLat753"
+levels(sigla)[grep("BAV, BL", levels(sigla))] = "BarbLat3953"
+levels(sigla)[grep("Barc - 239", levels(sigla))] = "Barc239"
+levels(sigla)[grep("Barc - 850", levels(sigla))] = "Barc850"
+levels(sigla)[grep("Str.App.8", levels(sigla))] = "StrApp8"
+levels(sigla)[grep("Nü - II.77", levels(sigla))] = "NurnbergII77"
+levels(sigla)[grep("Mü", levels(sigla))] = "MunchenLat759"
+levels(sigla)[grep("Harl - 4041", levels(sigla))] = "Harley3041"
+levels(sigla)[grep("MI - D.55_0001", levels(sigla))] = "MilanoD55sup"
+#write.csv("sigla.csv", x = levels(sigla))
+
+
+BeDT = cbind(BeDT, sigla)
+
+```
+
+
+### Evolving diversity per period
+
+#### Authors as sites, texts as species, witnesses as individuals
+
+```{r}
+# Vegan calso can estimate series of R ́enyi and Tsal-lis  diversities.   R ́enyi  diversity  of  orderais  (Hill,1973) -> TODO: voir cet indice
+library("vegan")
+# Global, texts as species, witnesses as individuals
+vegan::diversity(textsFreqs[,2], index = "shannon")
+# Evolution through time
+# First, building data
+# (and sheating a bit since text 001 is actually not the same for author A and B, but here we do not really care)
+authors = sort(unique(autText[,1]))
+texts = sort(unique(autText[,2]))
+TextsByAuts = matrix(ncol = length(texts), nrow = length(authors), data = 0, dimnames = list(authors, texts) )
+
+for(i in 1:length(authors)){
+  for(j in 1:length(texts)){
+    TextsByAuts[authors[i], texts[j]] = nrow(autText[autText[, 1] == authors[i] & autText[, 2] == texts[j], , drop = FALSE])
+  }
+}
+# And now, global diversity
+TextsByAuts_diversities = vegan::diversity(TextsByAuts, index = "shannon")
+TextsByAuts_diversities
+# And distributions and means per period
+uniqueGens = sort(unique(autTextGen[,"gen"]))
+uniqueGens = uniqueGens[!uniqueGens %in% "?"]
+autGens = unique(autTextGen[, c(1,3)])
+summaries = list()
+layout(matrix(c(1,2,3,4,5,6), 2, 3, byrow = TRUE))
+for(i in 1:length(uniqueGens)){
+  auts = autGens[autGens[, 2] == uniqueGens[i],][, 1]
+  myDiv = vegan::diversity(TextsByAuts[auts,])
+  summaries[[uniqueGens[i]]] = summary(myDiv)
+  hist(myDiv, sub=uniqueGens[i])
+}
+
+#Shannon diversity vs. sample size (n wits)
+AutsDivsAndSample = merge(as.matrix(TextsByAuts_diversities),as.matrix(witPerAut),by="row.names",all.x=TRUE)
+row.names(AutsDivsAndSample) = AutsDivsAndSample[, 1]
+AutsDivsAndSample = AutsDivsAndSample[, 2:3]
+AutsDivsAndSample = AutsDivsAndSample[, c(2, 1)]
+colnames(AutsDivsAndSample) = c("N. wits", "Shannon Diversity")
+plot(AutsDivsAndSample)
+```
+
+#### Generations as sites, texts as species, witnesses as individuals
+
+
+```{r}
+# Vegan calso can estimate series of R ́enyi and Tsal-lis  diversities.   R ́enyi  diversity  of  orderais  (Hill,1973) -> TODO: voir cet indice
+library("vegan")
+# Evolution through time
+# First, building data
+uniqueTexts = sort(unique(paste(autTextGen[,1], ',', autTextGen[,2], sep = '')))
+TextsByGen = matrix(nrow = length(uniqueGens), ncol = length(uniqueTexts), dimnames = list(uniqueGens, uniqueTexts), data = 0)
+for(i in 1:length(uniqueGens)){
+  thisGenTexts = table(paste(autTextGen[autTextGen[, "gen"] == uniqueGens[i], ][,1], ',', autTextGen[autTextGen[, "gen"] == uniqueGens[i], ][,2] , sep=""))
+  for(j in 1:length(thisGenTexts)){
+    TextsByGen[uniqueGens[i], names(thisGenTexts[j])] = thisGenTexts[j]
+  }
+}
+# And now, global diversity
+TextGens_diversities = vegan::diversity(TextsByGen, index = "shannon")
+TextGens_diversities
+# And distributions and means per period
+plot(TextGens_diversities, type="b", sub = paste("Source = BedT -- N. wits = ", sum(TextsByGen)), xlab = "Generations", xaxt="n", ylab="Shannon div.", main = "Generations as sites, texts as species, witnesses as individuals")
+axis(1, at=1:6, labels=uniqueGens)
+```
+
+#### Generations as sites, authors as species, texts as individuals
+
+```{r}
+# Global, authors as species, texts as individuals (generations as sites)
+vegan::diversity(table(autTextGen[,1]), index = "shannon")
+# By generation now
+# First, create the necessary clean table
+uniqueAuts = unique(autTextGen[,1])
+AuthorsByGen = matrix(nrow = length(uniqueGens), ncol = length(uniqueAuts), dimnames = list(uniqueGens, uniqueAuts), data = 0)
+for(i in 1:length(uniqueGens)){
+  thisGenAuts = table(autTextGen[autTextGen[, "gen"] == uniqueGens[i], ][,1])
+  for(j in 1:length(thisGenAuts)){
+    AuthorsByGen[uniqueGens[i], names(thisGenAuts[j])] = thisGenAuts[j]
+  }
+}
+AutGens_diversities = vegan::diversity(AuthorsByGen, index = "shannon")
+plot(AutGens_diversities, type="b", sub = paste("Source = BedT -- N. wits = ", sum(AuthorsByGen)), xlab = "Generations", xaxt="n", ylab="Shannon div.")
+axis(1, at=1:6, labels=uniqueGens)
+```
+
+But Shannon measure is sensitive to sample size. As an alternative, we can use rarefaction (cf. vegan doc., http://127.0.0.1:15781/library/vegan/doc/diversity-vegan.pdf)
+
+
+```{r}
+vegan::rarefy(AuthorsByGen, min(rowSums(AuthorsByGen)))
+plot(vegan::rarefy(AuthorsByGen, min(rowSums(AuthorsByGen))), type="b")
+```
+
+
+## Lost works
+
+Some stats on the lost works.
+
+### Chansonniers en France au XVI-XVIII
+
+```{r}
+#cons et att.: q, S, Y, W, I, C, gamma, B, Z, E, f, delta, T, X, R, n, p
+#cons., non att.: Ch, G?,  psi, 
+# perdus: 4
+
+data = matrix(c(
+  17,
+  3,
+  4,
+  0
+  ),
+  ncol = 1,
+  dimnames = list(c("cons. et att.", "cons., non att.?", "perdus et att.", "perdus non att. ?"), "freq")
+)
+barplot(data, beside = TRUE, names.arg = rownames(data), las = 2)
+
+tauxPerte = round(data[3,] / sum(data) * 100)
+
+library(ggplot2)
+data = as.data.frame(data)
+ggplot(data=data, aes(x=rownames(data), y=data[,1])) +
+  geom_bar(stat="identity") + xlab(paste("pertes > ", tauxPerte, "%")) + ylab( "Fréq.") + ggtitle("Chans. en Fr. XVI-XVIII")
+
+```
+
+
+
+## Power-law probability distribution (Pareto type)
+
+Use mass instead of density, because discrete (or account for the partiality of witnesses, e.g., a witness with a half of the text, or 0.65 of the text, etc.
+For now, a fragment of 2 verses is a witness in the same way as a complete manuscript of 2000 verses. But there is no extant data for this.
+).
+
+Selon wikipedia en, la formule de densité est
+$P(X > x) \sim L(x)x^{-(\alpha+1)}$, 
+où $\alpha > 0$ et $L(x)$ is a slowly varying function, qui contrôle la forme finie de la queue. Si $L(x)$ est une constante, alors on a vraiment une loi de puissance.
+
+La plupart du temps, on doit fixer une valeur minimale $x_{min}$ à partir de laquelle la loi vaut (mais pas avant).
+
+
+```{r}
+# and now density
+#plot(density(textsFreqs[,2]), xlim = c(1,30), xaxs = "i")
+# or rather, mass
+plot(prop.table(table(textsFreqs[,2])), xlab = "n. witn.", ylab = "mass", main = "Troubadour Poems")
+#hist(textsFreqs[,2], probability = TRUE)
+# Try to fit a power-law # en bonne logique, barres plutôt que ligne
+curve(0.4 * x^-1.3, add = TRUE, col = "red")
+
+# la même chose en log
+plot(prop.table(table(textsFreqs[,2])), xlab = "n. witn.", ylab = "mass", xlim = c(1,30), ylim = c(0.01, 0.4), log = "xy", main = "Troubadour Poems", sub = "log/log plot")
+#hist(textsFreqs[,2], probability = TRUE)
+# Try to fit a power-law # en bonne logique, barres plutôt que ligne
+curve(0.4 * x^-1.3, add = TRUE, col = "red")
+```
+
+Estimation with regression
+```{r}
+data = cbind(as.numeric(labels(table(textsFreqs[,2]))[[1]]), table(textsFreqs[,2]))
+
+
+```
+
+
+
+Cela semble s'appliquer aussi aux témoins de chansons de geste,
+```{r, echo=FALSE}
+RepTrad = read.csv(file="data/mss_chanson_de_geste_par_trad.csv", sep = ",", header=TRUE, row.names = 1, quote = '\"')
+RepTradData = read.csv(file="data/mss_chanson_de_geste_par_trad_2.csv", sep = ",", header=TRUE, row.names = 1, quote = '\"')
+```
+
+```{r}
+plot(prop.table(RepTrad[,1]), xlab = "n. witn.", ylab = "mass", main = "Chansons de geste")
+#hist(textsFreqs[,2], probability = TRUE)
+# Try to fit a power-law # en bonne logique, barres plutôt que ligne
+curve(0.4 * x^-1.3, add = TRUE, col = "red")
+
+# la même chose en log
+plot(prop.table(RepTrad[,1]), xlab = "n. witn.", ylab = "mass", xlim = c(1,30), ylim = c(0.01, 0.4), log = "xy", main = "Chansons de geste", sub = "log/log plot")
+#hist(textsFreqs[,2], probability = TRUE)
+# Try to fit a power-law # en bonne logique, barres plutôt que ligne
+curve(0.4 * x^-1.3, add = TRUE, col = "red")
+```
+
+NB: 
+Sauf qu'en fait, la constante au pif que j'ai utilisée devrait plutôt être une constante normalisatrice, telle que 
+$p(x) = \frac{1 - \alpha}{x_{min}} \left( \frac{x}{x_{min}}\right)^{-\alpha} $.
+En fait, je retombais vaguement sur cela empiriquement, vu que je supposais que $x_{min}$ était 1 et que je donnais des valeurs voisines à la constante et $\alpha - 1$.
+Donc passer de 1.3 à 1.4.
+
+### avec `poweRlaw`
+
+Maintenant, on peut aussi essayer de trouver un fit via un algorithme dédié,
+par exemple via le module `poweRlaw`.
+
+À voir: que fait le plot de `poweRlaw` exactement ? Il trace des CDF (cumulative degressive frequencies ?). Renvoient à l'équation 3.9 dans Clauset et al.
+(2009)
+
+```{r}
+troub.pl = poweRlaw::displ$new(textsFreqs[,2])
+troub.pl$setXmin(1)
+(est = poweRlaw::estimate_pars(troub.pl))
+geste.pl = poweRlaw::displ$new(RepTradData[,1])
+geste.pl$setXmin(1)
+(est = poweRlaw::estimate_pars(geste.pl))
+```
+
+Ce qui voudrait dire $\alpha$ à 1,69 pour les troubadours et 1,76 pour les chansons de geste, avec $x_{min} = 1$.
+
+Mais on peut aussi chercher à optimiser $x_{min}$:
+```{r}
+(est1 = poweRlaw::estimate_xmin(troub.pl))
+(est2 = poweRlaw::estimate_xmin(geste.pl))
+```
+Cela serait `r est1$xmin` pour les troubadours et `r est2$xmin` pour les chansons de geste. À partir de là, les valeurs d'$\alpha$ seraient `r est1$pars` et `r est2$pars`.
+
+```{r}
+troub.pl$setXmin(est1$xmin)
+troub.pl$setPars(est1$pars)
+poweRlaw::plot(troub.pl)
+poweRlaw::lines(troub.pl, col = 2)
+#pas top, et ainsi
+troub.pl$setXmin(1)
+troub.pl$setPars(1.68)
+poweRlaw::plot(troub.pl)
+poweRlaw::lines(troub.pl, col = 2)
+```
+Pour être sûr qu'on soit bien en présence d'une loi de puissance, on peut tester la procédure fondée sur Clauset et al.
+
+```{r}
+library("poweRlaw") # Nécessaire pour éviter un bug. Espace de nom mal déclaré dans le package ?
+bs_p = poweRlaw::bootstrap_p(troub.pl, no_of_sims=100, threads=2)# sims passés de 1000 à 100 pour limiter temps d'exécution dans cette feuille.
+# ici, p serait égal à 0 ce qui signifierait qu'on n'a pas une loi de puissance du tout
+troub.pl$setXmin(est1$xmin)
+troub.pl$setPars(est1$pars)
+bs_p2 = poweRlaw::bootstrap_p(troub.pl, no_of_sims=100, threads=2)
+# toujours 0, même en changeant les pars
+```
+
+
+
+
+<!--
+TODO: pareto Q-Q plot
+```{r}
+qqnorm(textsFreqs[,2])
+qqline(textsFreqs[,2])
+```
+-->
+
+
+
+
+## Power-law frequency (n. witn.) / rank (Zipf type)
+
+```{r}
+# Fait-maison
+plot(x = rank(-textsFreqs[,2], ties.method = "random"), y = textsFreqs[,2])
+plot(x = rank(-textsFreqs[,2], ties.method = "random"), y = textsFreqs[,2], log="xy")
+# zipfR
+
+```
+
+Voir `zipfR`.
+
+
+
+<!-- TODO: plot the density plots on the same graphic for
+troubs and epic mss ? 
+Cf. https://homepage.divms.uiowa.edu/~luke/classes/STAT4580/histdens.html#density-plots
+Grouping and Faceting
+-->
+
+Fitting a distribution.
+
+Pour une liste des noms de distributions standards dans R, cf. la doc Distributions {stats}
+
+- fit a (discrete) power law
+```{r}
+fit_pl = igraph::fit_power_law(textsFreqs[,2], implementation = "R.mle")
+fit_pl
+stats4::logLik(fit_pl)
+fit_pl = igraph::fit_power_law(textsFreqs[,2], implementation = "plfit")
+fit_pl
+```
+
+
+- as a discrete variable
+```{r, echo=FALSE}
+library(fitdistrplus)
+```
+
+```{r}
+plotdist(textsFreqs[,2], histo = TRUE, demp = TRUE, discrete = TRUE)
+descdist(textsFreqs[,2], discrete=TRUE, boot = 500)
+
+#fit_exp = fitdist(textsFreqs[,2], "exp", discrete = TRUE)
+#plot(fit_exp)
+
+#dmyPlaw = function(a,x,k) a * x^-k 
+#fit_pl = fitdist(textsFreqs[,2], "myPlaw", start = list(a = 1, k = 1))
+
+# Partons sur poisson, binomial, negative binomial, geometrique, hypergeometrique
+fit_p = fitdist(textsFreqs[,2], "pois") # -> pas ça.
+fit_p
+# Donc, lambda serait 4.44 et son écart-type sqrt(3.67)
+plot(fit_p)
+#fit_b = fitdist(wl, "binom", lower = c(0, 0))
+fit_nb = fitdist(textsFreqs[,2], "nbinom") # -> toujours pas.
+plot(fit_nb)
+fit_g = fitdist(textsFreqs[,2], "geom")# -> niet
+plot(fit_g)
+
+#Et les distribs avec paramètres
+#prefit(textsFreqs[,2], "hyper")
+#fit_hg = fitdist(textsFreqs[,2], "hyper")
+
+denscomp(list(fit_p, fit_nb, fit_g))
+#cdfcomp (list(fit_w, fit_g, fit_ln), legendtext = plot.legend)
+```
+
+- as a continuous variable:
+```{r}
+# En le traitant comme variable continue
+plotdist(textsFreqs[,2], histo = TRUE, demp = TRUE, discrete = FALSE)
+descdist(textsFreqs[,2], discrete=FALSE, boot = 500)
+
+
+```
+
+## Regression
+
+```{r}
+plot(log(numFreqs[,1]), log(numFreqs[,2]), main = "Distr. of wits per troubadour text - log / log plot", xlab = "log(number of witnesses)", ylab = "log(freqs)")
+colnames(numFreqs)[1] = "NbWits"
+reg = lm(log(Freq) ~ log(NbWits), data = as.data.frame(numFreqs))
+abline(reg, col="red")
+summary(reg)
+mtext(text = paste("Adj. R² ", round(summary(reg)$adj.r.squared, digits = 3 )), line = 4, side= 1, cex=1)
+```
+
+
+# Chansons de geste
+
+```{r, echo=FALSE,}
+RepSiecle = read.csv(file="data/mss_chanson_de_geste_stats_par_siecle.csv", sep = ",", header=TRUE, row.names = 1, quote = '\"')
+RepTranche = read.csv(file="data/mss_chanson_de_geste_stats_par_tranche.csv", sep = ",", header=TRUE, row.names = 1, quote = '\"')
+RepTrad = read.csv(file="data/mss_chanson_de_geste_par_trad.csv", sep = ",", header=TRUE, row.names = 1, quote = '\"')
+#Sans étiquettes
+RepTrad2 = read.csv(file="data/mss_chanson_de_geste_par_trad.csv", sep = ",", header=TRUE, quote = '\"')
+RepTrad2 = data.frame(RepTrad2[2], RepTrad2[1])
+RepTradData = read.csv(file="data/mss_chanson_de_geste_par_trad_2.csv", sep = ",", header=TRUE, row.names = 1, quote = '\"')
+```
+
+##Répartition par siècle des manuscrits
+<!-- , fig.width=20, fig.height=10, dpi=45 -->
+```{r}
+barplot(RepSiecle[,1], names.arg = rownames(RepSiecle), main = "Epic mss per century", sub="From Duggan (1982), Careri (2006) and Careri et al. (2011)")
+barplot(RepTranche[,3], names.arg = rownames(RepTranche), main = "Epic mss per half-century", sub="From Duggan (1982), Careri (2006) and Careri et al. (2011)")
+```
+
+## Distr. of witnesses per chanson de geste
+```{r}
+barplot(RepTrad[,1], names.arg = rownames(RepTrad), main = "Distr. of wits per epic text", sub = "from Vitale-Brovarone (2006)", ylab = "Freqs", xlab = "nb. witnesses")
+
+plot(RepTrad[,1], type = "h", col = "red", lwd = 10, main = "Distr. of wits per epic text \n Data: Vitale-Brovarone (2006)", xlab = "number of witnesses", ylab = "Freqs", sub = paste("N = ", sum(RepTrad[,1])), xlim = c(0.1,30), ylim = c(1,80), xaxs = "i", yaxs = "i")
+
+#mtext(text = "nb. de témoins", line = 2, side= 1, cex=1.2)
+plot(density(RepTrad[,1]), main = "Kernel Density Estimation", sub = "Distribution of witnesses per epic text")
+
+
+w = vector()
+for(i in seq_len(length(RepTrad[,1]))){
+  w = c(w, rep(i, RepTrad[i,1]))
+}
+summary(w)
+``` 
+
+## Power-law probability distribution (Pareto type)
+
+```{r}
+plot(prop.table(RepTrad[,1]), xlab = "n. witn.", ylab = "mass", main = "Distr. of witness per epic text", type = "h")
+#hist(textsFreqs[,2], probability = TRUE)
+# Try to fit a power-law # en bonne logique, barres plutôt que ligne
+curve(0.4 * x^-1.3, add = TRUE, col = "red")
+
+# la même chose en log
+plot(prop.table(RepTrad[,1]), xlab = "n. witn.", ylab = "mass", xlim = c(1,30), ylim = c(0.01, 0.4), log = "xy")
+#hist(textsFreqs[,2], probability = TRUE)
+# Try to fit a power-law # en bonne logique, barres plutôt que ligne
+curve(0.4 * x^-1.3, add = TRUE, col = "red")
+```
+
+
+
+###Description de la distribution
+
+```{r}
+table(RepTradData[,1])
+#plot(RepTradData[,1], ylab = "Nb. de témoins", main = "Distrib. des chansons selon leur nb. de témoins",  sub="d'après Vitale-Brovarone (2006)")
+
+#Graphes log/log
+#plot(log(RepTradData[,1]), ylab = "Nombre de mss", main = "Distrib. des chansons selon leur nb. de mss",  sub="d'après Vitale-Brovarone (2006)")
+#Vaut-il mieux les faire en barplot?
+RepTrad2 = RepTrad2[RepTrad2[,1] > 0 , ]
+
+plot(RepTrad2[,2], RepTrad2[,1], main="Fréquence en chansons pour le nb. de témoins", ylab="Fréq. des chansons", xlab="Nb. de témoins")
+plot(RepTrad2[,2], RepTrad2[,1], log="xy",  main = "Distr. of wits per epic text - logarithmic scale", xlab = "number of witnesses", ylab = "freqs")
+
+#hist(RepTradData[,1], breaks = 1:30)
+#hist(log(RepTradData[,1]))
+#plot(RepTrad2, log="xy", type='h')
+#boxplot(RepTradData)
+summary(RepTradData)
+#Moyenne géométrique
+exp(mean(log(RepTradData[,1])))
+```
+
+<!--
+###Partitionnement
+
+K-medoids
+```{r}
+#library(cluster)
+#classes1 = pam(RepTradData, k = 3)
+#plot(classes1)
+#barplot(RepTradData[,1], col = classes1$clustering, main = "Nb.
+# de témoins par chanson", cex.axis = "1", sub = "colorés selon  un partitionnement autour de médoïdes avec 3 groupes", ylab="Nb. de témoins")#, yaxt='n') 
+#axis(side = 2, at = seq(0, max(RepTradData[,1]), by = 2))  
+```
+-->
+
+## Lost works and manuscripts
+
+<!-- TODO: renseigner la colonne date, et avec une colonne
+date standardisée.
+-->
+
+### Tradition status
+
+Status of the tradition for **major versions**, 
+
+```{r}
+epicWorks = read.csv("data/geste_works.csv")
+# Quick reordering
+epicWorks[, "Statut.trad."] = factor(epicWorks[, "Statut.trad."], levels = c("kept", "fragm", "lost"))
+epicWorks[, "Trad.hypoth"] = factor(epicWorks[, "Trad.hypoth"], levels = c("hypoth", "attested"))
+
+ggplot(data=epicWorks, aes(Statut.trad.)) + geom_bar(aes(fill=Trad.hypoth), color = "black") + ggtitle("Gestes: Major versions") +
+      xlab("Status of the tradition") + theme(axis.text.x = element_text(size = rel(1.2), face = "bold")) +  scale_fill_manual(values=c("darkgray", "darkred"))
+```
+
+and for **works**,
+<!-- TODO: handle hypothetic nature -->
+```{r}
+meta = unique(epicWorks[, "Meta"])
+worksStatus = matrix(nrow = length(meta), ncol = 3, dimnames = list(NULL, c("Meta", "StatusTrad", "Trad.hypoth")))
+worksStatus[, "Trad.hypoth"] = "attested"
+for (i in 1:length(meta)){
+  worksStatus[i, "Meta"] = as.character(meta[i])
+  # if there is at least one kept version
+  if("kept" %in% epicWorks[epicWorks[, "Meta"] == meta[i],][, "Statut.trad."]){
+    worksStatus[i,"StatusTrad"] = "kept"
+  } else{
+    if("fragm" %in% epicWorks[epicWorks[, "Meta"] == meta[i],][, "Statut.trad."]){
+    worksStatus[i,"StatusTrad"] = "fragm"
+    } else{
+    if("lost" %in% epicWorks[epicWorks[, "Meta"] == meta[i],][, "Statut.trad."]){
+    worksStatus[i,"StatusTrad"] = "lost"
+    if(!"attested" %in% epicWorks[epicWorks[, "Meta"] == meta[i],][, "Trad.hypoth"]){
+      worksStatus[i, "Trad.hypoth"] = "hypoth"
+    }
+  }
+  }
+  }
+}
+worksStatus = as.data.frame(worksStatus)
+
+# Quick reordering
+worksStatus[, "StatusTrad"] = factor(worksStatus[, "StatusTrad"], levels = c("kept", "fragm", "lost"))
+worksStatus[, "Trad.hypoth"] = factor(worksStatus[, "Trad.hypoth"], levels = c("hypoth", "attested"))
+
+ggplot(data=worksStatus, aes(StatusTrad)) + geom_bar(aes(fill=Trad.hypoth), color = "black") + ggtitle("Gestes: Works") +
+      xlab("Status of the tradition") + theme(axis.text.x = element_text(size = rel(1.2), face = "bold")) +  scale_fill_manual(values=c("darkgray", "darkred"))
+
+```
+
+### Distribution by century
+
+```{r}
+ggplot(data=epicWorks, aes(StandDate)) + geom_bar(aes(fill=Statut.trad.), color = "black") + ggtitle("Gestes: Major versions by century") +
+      xlab("Status of the tradition") + theme(axis.text.x = element_text(size = rel(1.2), face = "bold")) 
+```
+
+### Catalogues: Corpus of British Medieval libraries catalogues
+
+```{r}
+catalogues = matrix(data = c(8, 33, 4), ncol = 1, dimnames = list(c("Ms. identif.", "Ms. unidentif.", "Text (& ms.) unindentif."), "counts"))
+
+barplot(t(catalogues), main = "Epic MSS in British Med. Catalogues", sub = "No identif. (lost?) for c. 75%")
+
+# Alternative version with GGPlot, faking actual data
+
+catalogues = matrix(nrow = (8+33+4), ncol = 2, 
+       data = c(rep("identified", 8), rep("unidentif.", 37), 
+                rep("known", (8+33)), rep("unknown", 4)), 
+       dimnames = list(NULL, c("MS.", "Text"))
+       )
+catalogues = as.data.frame(catalogues)
+
+ggplot(data=catalogues, aes(MS.)) + geom_bar(aes(fill=Text), color = "black") + ggtitle("Epic MSS in British Med. Catalogues") + xlab("No identif. (lost?) for c. 75%") + theme(axis.text.x = element_text(size = rel(1.2), face = "bold"))
+
+```
+
+
+
+
+## Hypothèses sur les mss perdus
+
+Si l'on suppose un taux de décimation d'un manuscrit conservé sur 1000 copiés
+```{r}
+Decimation=1000
+RepTradSuppose = RepTrad2
+for(i in 1:nrow(RepTradSuppose)){
+    RepTradSuppose[i,2] = RepTradSuppose[i,2] * Decimation
+}
+plot(log(RepTradSuppose[,2]), log(RepTradSuppose[,1]), main=paste('Fréquence en chansons pour le nb. de témoins \n Décimation supposée:', Decimation-1, 'sur', Decimation), ylab="log(Fréq. des chansons)", xlab="log(Nb. de témoins)", xlim = c(0,10), ylim=c(0,20))
+reg = lm(log(Fréquence..chansons.) ~ log(Nb..de.témoins), data=RepTradSuppose)
+abline(reg, untf = TRUE, col="red")
+mtext(paste("R² ajusté", round(summary(reg)$adj.r.squared, digits = 4)), side = 1, line=4)
+#Régression
+summary(reg)
+```
+
+<!--
+On arrive à une valeur de 11 pour 0 témoins en log, soit `r 
+format(round(exp(11)), scientific=FALSE)` pour `r exp(0)` témoin.
+
+Ou, pour le calculer proprement
+Pour log(1),
+```{r}
+#0 == reg$coefficients[1] + reg$coefficients[2] * x
+# - reg$coefficients[2] * x == reg$coefficients[1] 
+# x = reg$coefficients[1] / - reg$coefficients[2]
+# names(x) = ''
+# x
+# exp(x)
+```
+
+Pour log(10),
+```{r}
+#2.302585 == reg$coefficients[1] + reg$coefficients[2] * x
+#(2.302585 - reg$coefficients[1])/reg$coefficients[2]  == x
+# x = (2.302585 - reg$coefficients[1])/reg$coefficients[2]
+# names(x) = ''
+# x
+# exp(x)
+```
+
+-->
+
+# Œuvres médiévales latines à succès (FAMA)
+
+Situation un peu différente ici, car la base n'enregistre que (une sélection d') œuvres latines à succès.
+
+```{r, echo=FALSE,}
+fama = read.csv(file="data/fama.csv", sep="\t", header = FALSE, row.names = NULL, quote = '')
+textsFreqs = fama[fama[,2] != '0',]
+```
+
+
+```{r}
+# plot it
+plot(textsFreqs[,2])
+#barplot(textsFreqs[,2])
+# hist(textsFreqs[,2], breaks = seq(min(textsFreqs[,2])-0.5, max(textsFreqs[,2])+0.5, by=1), main = "Distribution of witnesses per text", xlab = "number of witnesses", include.lowest = TRUE)
+# or, better
+plot(table(textsFreqs[,2]), type = "h", col = "red", lwd = 10, main = "Distr. of witnesses per mediolatin successfull text", xlab = "number of witnesses", ylab = "Freqs", sub = paste("N = ", length(textsFreqs[,2])))
+#boxplot(textsFreqs[,2])
+#summary(textsFreqs[,2])
+# geometric mean
+exp(mean(log(textsFreqs[,2])))
+
+# frequencies for each numeric value
+numFreqs = table(textsFreqs[,2])
+numFreqs = as.data.frame(numFreqs)
+numFreqs = sapply(numFreqs, as.numeric)
+plot(numFreqs[,1], numFreqs[,2], log = "xy", main = "Distr. of wits per troubadour text - logarithmic scale", xlab = "number of witnesses", ylab = "freqs")
+```
+
+## Power-law probability distribution (Pareto type)
+
+```{r}
+# or rather, mass
+plot(prop.table(table(textsFreqs[,2])), xlab = "n. witn.", ylab = "mass", main = "Fama")
+# Try to fit a power-law # en bonne logique, barres plutôt que ligne
+curve(0.4 * x^-1.4, add = TRUE, col = "red")
+
+# la même chose en log
+plot(prop.table(table(textsFreqs[,2])), xlab = "n. witn.", ylab = "mass", xlim = c(1,4000), ylim = c(0.01, 0.06), log = "xy", main = "Fama", sub = "log/log plot")
+#hist(textsFreqs[,2], probability = TRUE)
+# Try to fit a power-law # en bonne logique, barres plutôt que ligne
+curve(0.4 * x^-1.4, add = TRUE, col = "red")
+```
+
+# Incunabula printed in Italy
+
+## Copies per work
+
+```{r, echo=FALSE,}
+# One row per witness of a given work
+ISTC_wits = read.csv(file="data/ISTC_ex_Italy_by-witness.csv", header = TRUE, quote = '\"')
+# One row per physical book
+ISTC_books = read.csv(file="data/ISTC_ex_Italy_by-book.csv", header = TRUE, quote = '\"')
+```
+
+Number of copies per work
+```{r}
+edFreqs = table(ISTC_wits[,"text"])
+booksPerWorks = as.data.frame(edFreqs)
+#View(edFreqs[with(edFreqs, order(-edFreqs[,2])), ])
+plot(table(booksPerWorks[,2]), type = "h", col = "red", lwd = 10, xlab = "n. copies", main = "Incunabula printed in Italy \n Extant copies per work", ylab = "Freqs", sub = paste("Source: ISTC  -- N = ", sum(booksPerWorks[,2])))
+
+```
+
+What are the texts with most books ?
+```{r}
+#View(edFreqs)
+```
+
+## Copies per edition
+
+Exemplaries by edition
+```{r}
+edFreqs = table(ISTC_books[,"X_id"])
+edFreqs = as.data.frame(edFreqs)
+#edFreqs[with(edFreqs, order(-edFreqs[,2])), ]
+
+plot(table(edFreqs[,2]), type = "h", col = "red", lwd = 10, xlab = "n. copies", main = "Incunabula printed in Italy \n Extant copies per edition", ylab = "Freqs", sub = paste("Source: ISTC  -- N = ", length(edFreqs[,2])))
+
+plot(prop.table(table(edFreqs[,2])), xlab = "n. copies", ylab = "mass", main = "Incunabula printed in Italy \n Extant copies per edition")
+#hist(textsFreqs[,2], probability = TRUE)
+# Try to fit a power-law # en bonne logique, barres plutôt que ligne
+#curve(0.4 * x^-1.3, add = TRUE, col = "red")
+```
+
+Number of edition per work
+```{r}
+EdWorks = ISTC_wits[, c("X_id", "text")]
+EdWorks = unique(EdWorks)
+EdWorks = as.data.frame(table(EdWorks[,2]))
+#View(EdWorks[with(EdWorks, order(-EdWorks[,2])), ])
+
+plot(table(EdWorks[,2]), type = "h", col = "red", lwd = 10, xlab = "n. editions", main = "Incunabula printed in Italy \n Editions (with extant copies) per work", ylab = "Freqs", sub = paste("Source: ISTC  -- N = ", length(EdWorks[,2])))
+```
+
+## Text per author
+
+```{r}
+# Get authors and texts
+Incu_autsTexts = unique(ISTC_wits[, c("data.author", "text")])
+# Remove anonyms
+Incu_autsTexts = Incu_autsTexts[!Incu_autsTexts[,"data.author"] == "", ]
+# Count
+table_Incu_autsTexts = table(Incu_autsTexts[,1])
+# Weird
+table_Incu_autsTexts = table_Incu_autsTexts[!table_Incu_autsTexts == 0]
+#
+plot(table(table_Incu_autsTexts), type = "h", col = "red", lwd = 10, main = "Distr. of texts per author", xlab = "number of texts", ylab = "Freqs", sub = paste("N = ", nrow(Incu_autsTexts)))
+```
+
+Quels sont ceux qui ont écrit le plus de textes ?
+
+```{r}
+head(sort(table_Incu_autsTexts, decreasing = TRUE))
+```
+
+# Minnesang
+
+```{r}
+minne = read.csv(file = "data/minnesang/traditions_scraped.csv", header = TRUE, row.names=1,stringsAsFactors = FALSE)
+#View(minne)
+counts = minne[,4]
+```
+
+
+## Distr. of witnesses per lied
+```{r}
+barplot(table(counts),  main = "Distr. of wits per Minnesänger text", sub = "from Lyrik des Deutschen Mittelalters", ylab = "Freqs", xlab = "nb. witnesses")
+
+plot(table(counts),, type = "h", col = "red", lwd = 10, main = "Distr. of wits per  per Minnesänger text \n Data: Lyrik des Deutschen Mittelalters", xlab = "number of witnesses", ylab = "Freqs", sub = paste("N = ", sum(counts)))
+
+#mtext(text = "nb. de témoins", line = 2, side= 1, cex=1.2)
+plot(table(counts), main = "Kernel Density Estimation", sub = "Distribution of witnesses per epic text")
+```
+
+
+# FIGS FOR PAPER
+
+## Fig. 3
+
+```{r, fig.width=10, fig.height=11.25, out.width=1000, out.height=1125, dpi = 100, echo = FALSE}
+par(cex.lab=1.5, cex.main=2, cex.sub=1.3, col.sub = "darkred", mar = c(8,7,4,2) + 0.1)
+layout(matrix(c(1,2,3,4,5,6), 3, 2, byrow = TRUE))
+# A. Distr. of witnesses per troubadour text
+plot(table(troubtextsFreqs[,2]), type = "h", col = "red", lwd = 10, main = "A", xlab = "Number of witnesses", ylab = "Freq", sub = paste("Source: BedT  -- N = ", length(troubtextsFreqs[,2])))
+
+# B. Incunabula printed in Italy \n Extant copies per work
+plot(table(booksPerWorks[,2]), type = "h", col = "red", lwd = 10, xlab = "Number of witnesses", main = "B", ylab = "Freq", sub = paste("Source: ISTC  -- N = ", sum(booksPerWorks[,2])))
+
+# C. Distribution of texts per author (troubadours)
+plot(table(troubTextPerAut), type = "h", col = "red", lwd = 10, main = "C", xlab = "Number of texts", ylab = "Freq", sub = paste("Source: BedT  -- N = ", nrow(troubautTextUniques)))
+
+# D. Distribution of texts per author (incunabula)
+plot(table(table_Incu_autsTexts), type = "h", col = "red", lwd = 10, main = "D", xlab = "Number of texts", ylab = "Freq", sub = paste("Source: ISTC  -- N = ", nrow(Incu_autsTexts)))
+
+# E. Shannon diversity, Generations as sites, texts as species, witnesses as individuals
+plot(TextGens_diversities, type="b", sub = paste("Source = BedT -- N witnesses = ", sum(AuthorsByGen)), xlab = "BeDT `Generations'", xaxt="n", ylab="Shannon diversity", main = "E")
+axis(1, at=1:6, labels=uniqueGens)
+
+# F. Number of texts and witnesses per author
+plot(autTrads, col = colors, main ="F", xlab = "Number of texts", ylab = "Number of witnesses", sub = paste("Source: BedT  -- N authors = ", nrow(autTrads)))
+legend("topleft", legend = c("........-1175", "1170-1210", "1190-1235","1230-1265", "1260-...."), fill = c("yellow", "red", "darkred", "purple", "black"), cex = 0.7)
+maReg(select = c("yellow"), print = FALSE)
+maReg(select = "red", print = FALSE)
+maReg(select = "darkred", print = FALSE)
+maReg(select = "purple", print = FALSE)
+maReg(select = "black", print = FALSE)
+```
+
+
+
+
