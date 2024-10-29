@@ -1011,6 +1011,20 @@ Quels sont ceux qui ont écrit le plus de textes ?
 head(sort(table_Incu_autsTexts, decreasing = TRUE))
 ```
 
+# Geste + romans
+
+```{r}
+data = read.csv("data/Corpora_Merged_list_with_corrs_2_revu-Guidi.csv")
+```
+
+```{r}
+d = as.data.frame(table(data$TRI))
+
+library(ggplot2)
+ggplot(data=d, aes(x=Freq)) + geom_bar(stat = "count") + scale_y_continuous(trans='log10')
+```
+
+
 # Minnesang
 
 ```{r}
